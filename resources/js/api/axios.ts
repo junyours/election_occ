@@ -5,7 +5,7 @@ import axios, {
     AxiosError,
 } from "axios";
 
-const API_URL: string = "http://localhost:8000/api/web";
+const API_URL: string = "https://election.occph.com/api/web";
 
 /* ============================================================
  * Default JSON API client
