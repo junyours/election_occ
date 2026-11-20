@@ -1,0 +1,106 @@
+{
+  "node_modules/@fontsource-variable/inter/files/inter-cyrillic-ext-wght-normal.woff2": {
+    "file": "assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-cyrillic-ext-wght-normal.woff2"
+  },
+  "node_modules/@fontsource-variable/inter/files/inter-cyrillic-wght-normal.woff2": {
+    "file": "assets/inter-cyrillic-wght-normal-DqGufNeO.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-cyrillic-wght-normal.woff2"
+  },
+  "node_modules/@fontsource-variable/inter/files/inter-greek-ext-wght-normal.woff2": {
+    "file": "assets/inter-greek-ext-wght-normal-DlzME5K_.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-greek-ext-wght-normal.woff2"
+  },
+  "node_modules/@fontsource-variable/inter/files/inter-greek-wght-normal.woff2": {
+    "file": "assets/inter-greek-wght-normal-CkhJZR-_.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-greek-wght-normal.woff2"
+  },
+  "node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2": {
+    "file": "assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2"
+  },
+  "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2": {
+    "file": "assets/inter-latin-wght-normal-Dx4kXJAl.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2"
+  },
+  "node_modules/@fontsource-variable/inter/files/inter-vietnamese-wght-normal.woff2": {
+    "file": "assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2",
+    "src": "node_modules/@fontsource-variable/inter/files/inter-vietnamese-wght-normal.woff2"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-BI5AsI5b.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "assets": [
+      "assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2",
+      "assets/inter-cyrillic-wght-normal-DqGufNeO.woff2",
+      "assets/inter-greek-ext-wght-normal-DlzME5K_.woff2",
+      "assets/inter-greek-wght-normal-CkhJZR-_.woff2",
+      "assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2",
+      "assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2",
+      "assets/inter-latin-wght-normal-Dx4kXJAl.woff2"
+    ]
+  },
+  "resources/js/assets/csg.png": {
+    "file": "assets/csg-BZfhua18.png",
+    "src": "resources/js/assets/csg.png"
+  },
+  "resources/js/assets/emojis/Angry Face.png": {
+    "file": "assets/Angry Face-CAXp7-9a.png",
+    "src": "resources/js/assets/emojis/Angry Face.png"
+  },
+  "resources/js/assets/emojis/Crying Face.png": {
+    "file": "assets/Crying Face-BETs0tcX.png",
+    "src": "resources/js/assets/emojis/Crying Face.png"
+  },
+  "resources/js/assets/emojis/Face with Open Mouth.png": {
+    "file": "assets/Face with Open Mouth-BPt1vt6h.png",
+    "src": "resources/js/assets/emojis/Face with Open Mouth.png"
+  },
+  "resources/js/assets/emojis/Face with Tears of Joy.png": {
+    "file": "assets/Face with Tears of Joy-DBtAaFHb.png",
+    "src": "resources/js/assets/emojis/Face with Tears of Joy.png"
+  },
+  "resources/js/assets/emojis/Red Heart.png": {
+    "file": "assets/Red Heart-CSKz6yaY.png",
+    "src": "resources/js/assets/emojis/Red Heart.png"
+  },
+  "resources/js/assets/emojis/ThumbsUp.png": {
+    "file": "assets/ThumbsUp-DZqi1byQ.png",
+    "src": "resources/js/assets/emojis/ThumbsUp.png"
+  },
+  "resources/js/assets/occlogo.png": {
+    "file": "assets/occlogo-DCIb4LOC.png",
+    "src": "resources/js/assets/occlogo.png"
+  },
+  "resources/js/main.tsx": {
+    "file": "assets/main-2raYdzY6.js",
+    "name": "main",
+    "src": "resources/js/main.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/app-BI5AsI5b.css"
+    ],
+    "assets": [
+      "assets/occlogo-DCIb4LOC.png",
+      "assets/csg-BZfhua18.png",
+      "assets/ThumbsUp-DZqi1byQ.png",
+      "assets/Red Heart-CSKz6yaY.png",
+      "assets/Face with Tears of Joy-DBtAaFHb.png",
+      "assets/Face with Open Mouth-BPt1vt6h.png",
+      "assets/Crying Face-BETs0tcX.png",
+      "assets/Angry Face-CAXp7-9a.png",
+      "assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2",
+      "assets/inter-cyrillic-wght-normal-DqGufNeO.woff2",
+      "assets/inter-greek-ext-wght-normal-DlzME5K_.woff2",
+      "assets/inter-greek-wght-normal-CkhJZR-_.woff2",
+      "assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2",
+      "assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2",
+      "assets/inter-latin-wght-normal-Dx4kXJAl.woff2"
+    ]
+  }
+}
