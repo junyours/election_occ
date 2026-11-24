@@ -1,1 +1,1 @@
-export const api_url = "https://election.occph.com/";
+export const api_url = "https://election.occph.com";
