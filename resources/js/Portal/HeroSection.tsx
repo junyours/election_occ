@@ -15,8 +15,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onVoteNowClick }) => {
     };
 
     const handleDownloadApp = (): void => {
-        window.open("/download-app", "_blank");
-    };
+    window.location.href = "/api/web/download-app";
+};
 
     return (
         <section id="home" className="relative overflow-hidden">
@@ -65,7 +65,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onVoteNowClick }) => {
                                 onClick={onVoteNowClick}
                                 className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-300"
                             >
-                                Vote Now
+                                Sign In
                                 <ArrowRight className="w-4 h-4 ml-2" />
                             </Button>
                         </div>

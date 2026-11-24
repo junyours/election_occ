@@ -84,8 +84,8 @@ const LoginModal: React.FC<LoginModalProps> = ({
     };
 
     const handleDownloadApp = (): void => {
-        window.open("/download-app", "_blank");
-    };
+    window.location.href = "/api/web/download-app";
+};
 
     const displayError = error || localError;
 

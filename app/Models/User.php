@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable
 {
@@ -50,6 +51,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password_hash',
         'remember_token',
+        'otp_code',
     ];
 
     protected $casts = [
@@ -152,7 +154,7 @@ class User extends Authenticatable
     {
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        $this->otp_code         = $code;
+        $this->otp_code         = Hash::make($code); // store hash only
         $this->otp_expires_at   = now()->addMinutes($ttlMinutes);
         $this->otp_last_sent_at = now();
         $this->save();
@@ -162,10 +164,15 @@ class User extends Authenticatable
 
     public function hasValidOtp(string $code): bool
     {
-        return $this->otp_code
-            && $this->otp_expires_at
-            && $this->otp_code === $code
-            && now()->lessThanOrEqualTo($this->otp_expires_at);
+        if (!$this->otp_code || !$this->otp_expires_at) {
+            return false;
+        }
+
+        if (now()->greaterThan($this->otp_expires_at)) {
+            return false;
+        }
+
+        return Hash::check($code, $this->otp_code);
     }
 
     public function clearOtp(): void

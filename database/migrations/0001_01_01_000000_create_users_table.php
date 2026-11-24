@@ -50,7 +50,7 @@ return new class extends Migration
             $table->id('user_id');
             $table->string('email', 100)->unique();
             $table->string('password_hash');
-            $table->string('otp_code', 6)->nullable();
+            $table->string('otp_code', 255)->nullable();
             $table->timestamp('otp_expires_at')->nullable();
             $table->timestamp('otp_last_sent_at')->nullable();
             $table->boolean('two_factor_enabled')->default(false);

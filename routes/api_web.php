@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Web\BroadcastController;
 use App\Http\Controllers\Api\Web\Campaign\CampaignScheduleRequestController;
 use App\Http\Controllers\Api\Web\NotificationController;
 use App\Http\Controllers\Api\Web\Partylist\PartylistRequestController;
+use App\Http\Controllers\Api\Web\AppDownloadController;
 
 /*
 |--------------------------------------------------------------------------
@@ -73,6 +74,12 @@ Route::prefix('web')->group(function () {
     Route::post('/reset-password', [PasswordController::class, 'resetPassword']);
     Route::post('/verify-credentials', [AuthController::class, 'verifyCredentials']);
     Route::post('/broadcasting/auth', [BroadcastController::class, 'authenticate']);
+
+    // ==================== MOBILE APP DOWNLOAD (PUBLIC) ====================
+    // Final URL: /api/web/download-app
+    Route::get('/download-app', [AppDownloadController::class, 'download'])
+        ->middleware('throttle:20,1')
+        ->name('web.app.download');
 
     // ==================== PARTYLIST PUBLIC ROUTES ====================
     Route::get('/partylists', [PartylistController::class, 'index']);

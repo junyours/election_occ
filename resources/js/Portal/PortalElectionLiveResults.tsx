@@ -1,13 +1,10 @@
 // resources/js/Portal/PortalElectionLiveResults.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Progress } from "../components/ui/progress";
 import {
     publicResultsAPI,
     LiveResultsPayload,
-    LiveCandidateResult,
     PositionProgress,
 } from "../api/publicResults";
 import {
@@ -16,13 +13,13 @@ import {
     Award,
     BarChart3,
     Calendar,
-    CheckCircle,
+    CheckCircle2,
     Clock,
     Crown,
     Loader2,
     Lock,
     RefreshCw,
-    Sparkles,
+    ShieldCheck,
     TrendingUp,
     Trophy,
     User,
@@ -49,29 +46,98 @@ import {
 const POLL_MS = 15_000;
 const HIDDEN_MULTIPLIER = 4;
 
-const CHART_COLORS = [
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#ef4444",
-    "#8b5cf6",
-    "#ec4899",
-    "#06b6d4",
-    "#84cc16",
-];
+/* Brand tokens (kept in one place so charts match the Tailwind UI) */
+const INK = "#0A1530";
+const BLUE = "#2F5BFF";
+const GREEN = "#10b981";
+const SLATE = "#cbd5e1";
+const TEAL = "#0d9488";
 
-// ------------------------------------------------------------
-// Pie label renderer
-// ------------------------------------------------------------
-const renderPieLabel = (props: any): string => {
-    const { name, percent } = props;
-    if (!name) return "";
-    return `${name}: ${((percent || 0) * 100).toFixed(0)}%`;
+const tooltipStyle = {
+    borderRadius: 12,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 10px 30px rgba(10,21,48,0.12)",
+    fontSize: 12,
 };
 
-// ------------------------------------------------------------
-// Main page
-// ------------------------------------------------------------
+const CARD = "rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm";
+
+/* ------------------------------------------------------------------ */
+/* Small presentational helpers                                        */
+/* ------------------------------------------------------------------ */
+
+const PanelHeader: React.FC<{
+    icon: React.ElementType;
+    title: string;
+    tone: string;
+    aside?: React.ReactNode;
+}> = ({ icon: Icon, title, tone, aside }) => (
+    <div className="mb-5 flex items-center gap-3">
+        <span
+            className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}
+        >
+            <Icon className="h-4 w-4" />
+        </span>
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        {aside && <div className="ml-auto">{aside}</div>}
+    </div>
+);
+
+const Pill: React.FC<{ children: React.ReactNode; className?: string }> = ({
+    children,
+    className = "bg-slate-100 text-slate-600",
+}) => (
+    <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums ${className}`}
+    >
+        {children}
+    </span>
+);
+
+const LiveDot: React.FC<{ className?: string }> = ({
+    className = "bg-emerald-500",
+}) => (
+    <span className="relative flex h-2 w-2">
+        <span
+            className={`absolute inline-flex h-full w-full rounded-full opacity-75 motion-safe:animate-ping ${className}`}
+        />
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${className}`} />
+    </span>
+);
+
+const Bar2: React.FC<{ value: number; className?: string; height?: string }> = ({
+    value,
+    className = "bg-blue-600",
+    height = "h-2",
+}) => (
+    <div
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(Math.min(100, Math.max(0, value)))}
+        className={`w-full overflow-hidden rounded-full bg-slate-100 ${height}`}
+    >
+        <div
+            className={`h-full rounded-full transition-[width] duration-700 ease-out ${className}`}
+            style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        />
+    </div>
+);
+
+const formatDateTime = (value?: string) =>
+    value
+        ? new Date(value).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+          })
+        : "—";
+
+/* ------------------------------------------------------------------ */
+/* Main page                                                           */
+/* ------------------------------------------------------------------ */
 const PortalElectionLiveResults: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -142,18 +208,18 @@ const PortalElectionLiveResults: React.FC = () => {
         if (data.is_finished)
             return {
                 label: "Ended",
-                color: "bg-gray-100 text-gray-800",
-                icon: CheckCircle,
+                chip: "bg-white/10 text-slate-200 ring-white/20",
+                icon: CheckCircle2,
             };
         if (data.is_ongoing)
             return {
                 label: "Ongoing",
-                color: "bg-green-100 text-green-800",
+                chip: "bg-emerald-400/15 text-emerald-300 ring-emerald-300/30",
                 icon: Activity,
             };
         return {
             label: "Upcoming",
-            color: "bg-yellow-100 text-yellow-800",
+            chip: "bg-amber-400/15 text-amber-200 ring-amber-300/30",
             icon: Clock,
         };
     }, [data]);
@@ -180,9 +246,9 @@ const PortalElectionLiveResults: React.FC = () => {
                     category: progress?.category ?? "General",
                     candidates,
                     total_votes: totalVotes,
-                    progress_percentage:
-                        progress?.progress_percentage ?? 0,
-                    total_candidates: progress?.total_candidates ?? candidates.length,
+                    progress_percentage: progress?.progress_percentage ?? 0,
+                    total_candidates:
+                        progress?.total_candidates ?? candidates.length,
                 };
             },
         );
@@ -194,15 +260,11 @@ const PortalElectionLiveResults: React.FC = () => {
     const participationPieData = useMemo(() => {
         if (!summary) return [];
         return [
+            { name: "Voted", value: summary.voted_count || 0, color: BLUE },
             {
-                name: "Voted",
-                value: summary.voted_count || 0,
-                color: "#10b981",
-            },
-            {
-                name: "Not Voted",
+                name: "Not voted",
                 value: summary.remaining_voters || 0,
-                color: "#ef4444",
+                color: SLATE,
             },
         ].filter((d) => d.value > 0);
     }, [summary]);
@@ -233,11 +295,11 @@ const PortalElectionLiveResults: React.FC = () => {
     // ---- Loading / error ----
     if (loading) {
         return (
-            <div className="min-h-screen bg-blue-50 flex items-center justify-center">
+            <div className="flex min-h-screen items-center justify-center bg-slate-50">
                 <div className="text-center">
-                    <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-3" />
-                    <p className="text-gray-600 font-medium">
-                        Loading results...
+                    <Loader2 className="mx-auto mb-3 h-9 w-9 animate-spin text-blue-600" />
+                    <p className="font-medium text-slate-600">
+                        Loading results…
                     </p>
                 </div>
             </div>
@@ -246,32 +308,34 @@ const PortalElectionLiveResults: React.FC = () => {
 
     if (error || !data) {
         return (
-            <div className="min-h-screen bg-blue-50 flex items-center justify-center px-4">
-                <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Vote className="w-8 h-8 text-red-500" />
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+                <div
+                    role="alert"
+                    className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl shadow-slate-900/10 ring-1 ring-slate-200"
+                >
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+                        <Vote className="h-7 w-7 text-red-500" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">
-                        Results Not Available
+                    <h2 className="mb-2 text-xl font-semibold text-slate-900">
+                        Results not available
                     </h2>
-                    <p className="text-gray-500 mb-5 text-sm">
-                        {error ||
-                            "We couldn't load results for this election."}
+                    <p className="mb-6 text-sm text-slate-500">
+                        {error || "We couldn't load results for this election."}
                     </p>
-                    <div className="flex gap-2 justify-center">
+                    <div className="flex justify-center gap-2">
                         <Button
                             variant="outline"
                             onClick={() => navigate("/live-results")}
                             className="rounded-xl"
                         >
-                            <ArrowLeft className="w-4 h-4 mr-1" />
-                            All Elections
+                            <ArrowLeft className="mr-1.5 h-4 w-4" />
+                            All elections
                         </Button>
                         <Button
                             onClick={() => fetchResults(true)}
-                            className="bg-blue-600 hover:bg-blue-700 rounded-xl"
+                            className="rounded-xl bg-[#123A8C] hover:bg-[#0F2A6B]"
                         >
-                            <RefreshCw className="w-4 h-4 mr-1" />
+                            <RefreshCw className="mr-1.5 h-4 w-4" />
                             Retry
                         </Button>
                     </div>
@@ -282,247 +346,233 @@ const PortalElectionLiveResults: React.FC = () => {
 
     const StatusIcon = status?.icon ?? Clock;
 
+    const statCells = summary
+        ? [
+              { label: "Votes cast", value: summary.total_votes_cast, icon: Vote, iconTone: "bg-blue-50 text-blue-600" },
+              { label: "Eligible voters", value: summary.total_voters, icon: Users, iconTone: "bg-emerald-50 text-emerald-600" },
+              { label: "Turnout", value: `${summary.turnout_percentage}%`, icon: TrendingUp, iconTone: "bg-violet-50 text-violet-600" },
+              { label: "Positions", value: summary.total_positions, icon: Award, iconTone: "bg-amber-50 text-amber-600" },
+              { label: "Candidates", value: summary.total_candidates, icon: User, iconTone: "bg-teal-50 text-teal-600" },
+              ...(isOngoing
+                  ? [{ label: "Last 30 min", value: summary.recent_votes_30min, icon: Zap, iconTone: "bg-rose-50 text-rose-600" }]
+                  : []),
+          ]
+        : [];
+
     return (
-        <div className="min-h-screen bg-blue-50">
-            {/* ============================================================ */}
-            {/* HEADER */}
-            {/* ============================================================ */}
-            <div className="relative overflow-hidden bg-blue-600 shadow-xl">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-                <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="min-h-screen bg-slate-50 text-slate-900">
+            {/* ============================ HERO ============================ */}
+            <header className="relative overflow-hidden bg-[#0F2A6B]">
+                <div className="relative container mx-auto px-4 pb-16 pt-4 sm:px-6 sm:pb-20 lg:px-8">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => navigate("/live-results")}
-                        className="text-white/80 hover:text-white hover:bg-white/10 -ml-2 mb-3"
+                        className="-ml-3 text-slate-300 hover:bg-white/10 hover:text-white"
                     >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        All Elections
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        All elections
                     </Button>
 
-                    <div className="flex justify-between items-start flex-wrap gap-4">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                        <div className="max-w-3xl">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {status && (
-                                    <Badge
-                                        className={`${status.color} border-0 px-3 py-1`}
+                                    <span
+                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset ${status.chip}`}
                                     >
-                                        <StatusIcon className="w-3 h-3 mr-1" />
-                                        {status.label}
-                                    </Badge>
+                                        {isOngoing ? (
+                                            <LiveDot className="bg-emerald-400" />
+                                        ) : (
+                                            <StatusIcon className="h-3.5 w-3.5" />
+                                        )}
+                                        {isOngoing ? "Live" : status.label}
+                                    </span>
                                 )}
                                 {data.election.election_type && (
-                                    <Badge className="bg-white/20 text-white border-0 px-3 py-1">
+                                    <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-slate-200 ring-1 ring-inset ring-white/15">
                                         {data.election.election_type}
-                                    </Badge>
-                                )}
-                                {isOngoing && (
-                                    <Badge className="bg-green-500 text-white border-0 px-3 py-1">
-                                        <span className="w-1.5 h-1.5 bg-white rounded-full mr-1.5 animate-pulse" />
-                                        LIVE
-                                    </Badge>
+                                    </span>
                                 )}
                             </div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+
+                            <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-white sm:text-4xl">
                                 {data.election.title}
                             </h1>
                             {data.election.description && (
-                                <p className="text-blue-100 mt-1 max-w-2xl">
+                                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
                                     {data.election.description}
                                 </p>
                             )}
-                            <div className="flex items-center gap-2 mt-2 text-blue-100 text-xs">
-                                <Calendar className="w-3.5 h-3.5" />
-                                {data.election.voting_start
-                                    ? new Date(
-                                          data.election.voting_start,
-                                      ).toLocaleString()
-                                    : "—"}{" "}
-                                –{" "}
-                                {data.election.voting_end
-                                    ? new Date(
-                                          data.election.voting_end,
-                                      ).toLocaleString()
-                                    : "—"}
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+                                <Calendar className="h-4 w-4" />
+                                <span className="tabular-nums">
+                                    {formatDateTime(data.election.voting_start)}
+                                    {" – "}
+                                    {formatDateTime(data.election.voting_end)}
+                                </span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+
+                        <div className="flex items-center gap-3">
+                            <div className="text-right leading-tight">
+                                <div className="flex items-center justify-end gap-1.5 text-xs text-slate-400">
+                                    {isOngoing && <LiveDot className="bg-blue-400" />}
+                                    {isOngoing
+                                        ? "Auto-refreshing every 15s"
+                                        : "Final results"}
+                                </div>
+                                <div className="mt-1 text-sm font-medium tabular-nums text-slate-100">
+                                    {lastUpdated.toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
+                                    })}
+                                </div>
+                            </div>
                             <Button
-                                variant="outline"
-                                size="sm"
                                 onClick={() => fetchResults(true)}
                                 disabled={refreshing}
-                                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                                className="h-11 rounded-xl bg-white px-5 font-medium text-[#0F2A6B] shadow-lg shadow-black/20 hover:bg-slate-100"
                             >
                                 <RefreshCw
-                                    className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+                                    className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
                                 />
-                                Refresh
+                                {refreshing ? "Refreshing" : "Refresh"}
                             </Button>
                         </div>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-                {/* Polling indicator */}
-                <div className="text-center text-xs text-gray-400 flex items-center justify-center gap-3">
-                    <span className="flex items-center gap-1.5">
-                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                        {isOngoing
-                            ? "Auto-refreshing every 15s"
-                            : "Final results"}
-                    </span>
-                    <span>•</span>
-                    <span>
-                        Last updated {lastUpdated.toLocaleTimeString()}
-                    </span>
-                </div>
+            {/* ============================ BODY ============================ */}
+            <main className="relative z-10 container mx-auto -mt-10 space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
+                {/* Summary strip */}
+                {summary && (
+                    <section
+                        aria-label="Election summary"
+                        className={`grid grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 ${
+                            statCells.length === 6 ? "lg:grid-cols-6" : "lg:grid-cols-5"
+                        }`}
+                    >
+                        {statCells.map((s, i) => {
+                            const Icon = s.icon;
+                            return (
+                                <div
+                                    key={s.label}
+                                    className={`flex flex-col gap-3 p-5 sm:p-6 ${
+                                        i % 2 === 1 ? "border-l border-slate-100" : ""
+                                    } ${i >= 2 ? "border-t border-slate-100" : ""} lg:border-t-0 ${
+                                        i > 0 ? "lg:border-l lg:border-slate-100" : "lg:border-l-0"
+                                    }`}
+                                >
+                                    <span
+                                        className={`flex h-9 w-9 items-center justify-center rounded-xl ${s.iconTone}`}
+                                    >
+                                        <Icon className="h-4 w-4" />
+                                    </span>
+                                    <div>
+                                        <div className="text-3xl font-semibold leading-none tabular-nums text-slate-900">
+                                            {s.value}
+                                        </div>
+                                        <div className="mt-1.5 text-sm text-slate-500">
+                                            {s.label}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </section>
+                )}
 
                 {/* Anonymity notice */}
                 {isOngoing && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
-                        <div className="flex items-start gap-3">
-                            <Lock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-sm font-semibold text-yellow-800">
-                                    Anonymous Results Mode
-                                </p>
-                                <p className="text-sm text-yellow-700">
-                                    Candidate names are hidden until the
-                                    election ends to keep voting fair.
-                                </p>
-                            </div>
+                    <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <Lock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                        <div>
+                            <p className="text-sm font-semibold text-amber-900">
+                                Anonymous results mode
+                            </p>
+                            <p className="text-sm text-amber-800">
+                                Candidate names stay hidden until the election
+                                ends, to keep voting fair.
+                            </p>
                         </div>
                     </div>
                 )}
 
-                {/* ============================================================ */}
-                {/* STATISTICS — SUMMARY PILLS */}
-                {/* ============================================================ */}
+                {/* Turnout progress */}
                 {summary && (
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full shadow-sm">
-                            <Vote className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-600">
-                                Votes Cast
-                            </span>
-                            <span className="text-sm font-bold text-gray-900">
-                                {summary.total_votes_cast}
-                            </span>
-                        </div>
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full">
-                            <Users className="w-4 h-4 text-green-600" />
-                            <span className="text-sm font-medium text-green-700">
-                                Eligible Voters
-                            </span>
-                            <span className="text-sm font-bold text-green-800">
-                                {summary.total_voters}
-                            </span>
-                        </div>
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-full">
-                            <TrendingUp className="w-4 h-4 text-purple-600" />
-                            <span className="text-sm font-medium text-purple-700">
-                                Turnout
-                            </span>
-                            <span className="text-sm font-bold text-purple-800">
-                                {summary.turnout_percentage}%
-                            </span>
-                        </div>
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-full">
-                            <Award className="w-4 h-4 text-orange-600" />
-                            <span className="text-sm font-medium text-orange-700">
-                                Positions
-                            </span>
-                            <span className="text-sm font-bold text-orange-800">
-                                {summary.total_positions}
-                            </span>
-                        </div>
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-200 rounded-full">
-                            <User className="w-4 h-4 text-teal-600" />
-                            <span className="text-sm font-medium text-teal-700">
-                                Candidates
-                            </span>
-                            <span className="text-sm font-bold text-teal-800">
-                                {summary.total_candidates}
-                            </span>
-                        </div>
-                        {isOngoing && (
-                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-full">
-                                <Zap className="w-4 h-4 text-red-600" />
-                                <span className="text-sm font-medium text-red-700">
-                                    Last 30 min
+                    <section className={`${CARD} p-6`}>
+                        <PanelHeader
+                            icon={BarChart3}
+                            title="Turnout progress"
+                            tone="bg-blue-50 text-blue-600"
+                            aside={
+                                <span className="text-2xl font-semibold tabular-nums text-slate-900">
+                                    {summary.turnout_percentage}%
                                 </span>
-                                <span className="text-sm font-bold text-red-800">
-                                    {summary.recent_votes_30min}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* ============================================================ */}
-                {/* STATISTICS — PROGRESS BAR */}
-                {/* ============================================================ */}
-                {summary && (
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                <BarChart3 className="w-4 h-4 text-blue-600" />
-                                Turnout Progress
-                            </span>
-                            <span className="text-sm font-bold text-blue-600">
-                                {summary.turnout_percentage}%
-                            </span>
-                        </div>
-                        <Progress
-                            value={summary.turnout_percentage}
-                            className="h-3 bg-gray-100"
+                            }
                         />
-                        <div className="flex justify-between text-xs text-gray-500 mt-2">
-                            <span>Voted: {summary.voted_count}</span>
-                            <span>Total: {summary.total_voters}</span>
-                            <span>Remaining: {summary.remaining_voters}</span>
+                        <Bar2
+                            value={summary.turnout_percentage}
+                            className="bg-blue-600"
+                            height="h-3.5"
+                        />
+                        <div className="mt-4 grid grid-cols-3 text-sm">
+                            <div>
+                                <div className="font-semibold tabular-nums text-slate-900">
+                                    {summary.voted_count}
+                                </div>
+                                <div className="text-slate-500">Voted</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="font-semibold tabular-nums text-slate-900">
+                                    {summary.remaining_voters}
+                                </div>
+                                <div className="text-slate-500">Remaining</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="font-semibold tabular-nums text-slate-900">
+                                    {summary.total_voters}
+                                </div>
+                                <div className="text-slate-500">Eligible</div>
+                            </div>
                         </div>
-                    </div>
+                    </section>
                 )}
 
-                {/* ============================================================ */}
-                {/* STATISTICS — CHARTS */}
-                {/* ============================================================ */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Participation pie */}
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <Vote className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-900">
-                                Voter Participation
-                            </span>
-                            {isOngoing && (
-                                <Badge className="bg-green-100 text-green-700 text-[10px] border-0 ml-auto">
-                                    <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse" />
-                                    Live
-                                </Badge>
-                            )}
-                        </div>
+                {/* Charts row */}
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {/* Participation donut */}
+                    <section className={`${CARD} p-6`}>
+                        <PanelHeader
+                            icon={Vote}
+                            title="Voter participation"
+                            tone="bg-blue-50 text-blue-600"
+                            aside={
+                                isOngoing && (
+                                    <Pill className="bg-emerald-50 text-emerald-700">
+                                        <LiveDot />
+                                        Live
+                                    </Pill>
+                                )
+                            }
+                        />
                         {participationPieData.length > 0 ? (
-                            <div className="h-[260px]">
-                                <ResponsiveContainer
-                                    width="100%"
-                                    height="100%"
-                                >
+                            <div className="relative h-[260px]">
+                                <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
                                             data={participationPieData}
                                             cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={95}
+                                            cy="46%"
+                                            innerRadius={72}
+                                            outerRadius={100}
                                             paddingAngle={3}
+                                            cornerRadius={6}
+                                            stroke="none"
                                             dataKey="value"
-                                            label={renderPieLabel}
                                         >
                                             {participationPieData.map(
                                                 (entry, index) => (
@@ -533,416 +583,429 @@ const PortalElectionLiveResults: React.FC = () => {
                                                 ),
                                             )}
                                         </Pie>
-                                        <Tooltip />
-                                        <Legend />
+                                        <Tooltip contentStyle={tooltipStyle} />
+                                        <Legend
+                                            iconType="circle"
+                                            wrapperStyle={{ fontSize: 12 }}
+                                        />
                                     </PieChart>
                                 </ResponsiveContainer>
+                                {summary && (
+                                    <div
+                                        className="pointer-events-none absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 text-center"
+                                        aria-hidden
+                                    >
+                                        <div className="text-3xl font-semibold tabular-nums text-slate-900">
+                                            {summary.turnout_percentage}%
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            turnout
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <div className="h-[260px] flex items-center justify-center text-gray-500 text-sm">
+                            <div className="flex h-[260px] items-center justify-center text-sm text-slate-500">
                                 No participation data yet
                             </div>
                         )}
-                        {summary && (
-                            <div className="mt-2 text-center">
-                                <span className="text-sm text-gray-600">
-                                    Turnout:{" "}
-                                </span>
-                                <span className="text-xl font-bold text-green-600">
-                                    {summary.turnout_percentage}%
-                                </span>
-                            </div>
-                        )}
-                    </div>
+                    </section>
 
-                    {/* Position progress bar chart */}
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <BarChart3 className="w-4 h-4 text-purple-600" />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-900">
-                                Position Progress
-                            </span>
-                            <Badge className="bg-purple-100 text-purple-700 text-[10px] border-0 ml-auto">
-                                {positions.length} positions
-                            </Badge>
-                        </div>
+                    {/* Position progress */}
+                    <section className={`${CARD} p-6`}>
+                        <PanelHeader
+                            icon={BarChart3}
+                            title="Position progress"
+                            tone="bg-violet-50 text-violet-600"
+                            aside={
+                                <Pill className="bg-violet-50 text-violet-700">
+                                    {positions.length} positions
+                                </Pill>
+                            }
+                        />
                         {positionProgressChartData.length > 0 ? (
                             <div className="h-[260px]">
-                                <ResponsiveContainer
-                                    width="100%"
-                                    height="100%"
-                                >
+                                <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={positionProgressChartData}
                                         layout="vertical"
-                                        margin={{ left: 10, right: 10 }}
+                                        margin={{ left: 0, right: 10 }}
+                                        barCategoryGap={10}
                                     >
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" />
+                                        <CartesianGrid
+                                            strokeDasharray="3 3"
+                                            stroke="#eef2f7"
+                                            horizontal={false}
+                                        />
+                                        <XAxis
+                                            type="number"
+                                            tick={{ fontSize: 11, fill: "#64748b" }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            allowDecimals={false}
+                                        />
                                         <YAxis
                                             dataKey="name"
                                             type="category"
-                                            width={90}
-                                            tick={{ fontSize: 10 }}
+                                            width={100}
+                                            tick={{ fontSize: 11, fill: "#475569" }}
+                                            axisLine={false}
+                                            tickLine={false}
                                         />
-                                        <Tooltip />
-                                        <Legend />
+                                        <Tooltip
+                                            contentStyle={tooltipStyle}
+                                            cursor={{ fill: "#f1f5f9" }}
+                                        />
+                                        <Legend
+                                            iconType="circle"
+                                            wrapperStyle={{ fontSize: 12 }}
+                                        />
                                         <Bar
                                             dataKey="votes"
-                                            fill="#3b82f6"
-                                            name="Votes Cast"
-                                            radius={[0, 8, 8, 0]}
+                                            fill={BLUE}
+                                            name="Votes cast"
+                                            radius={[0, 6, 6, 0]}
                                         />
                                         <Bar
                                             dataKey="candidates"
-                                            fill="#10b981"
+                                            fill={SLATE}
                                             name="Candidates"
-                                            radius={[0, 8, 8, 0]}
+                                            radius={[0, 6, 6, 0]}
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="h-[260px] flex items-center justify-center text-gray-500 text-sm">
+                            <div className="flex h-[260px] items-center justify-center text-sm text-slate-500">
                                 No position data yet
                             </div>
                         )}
-                    </div>
+                    </section>
                 </div>
 
-                {/* ============================================================ */}
-                {/* STATISTICS — VOTES PER HOUR */}
-                {/* ============================================================ */}
+                {/* Votes per hour */}
                 {votesPerHourChartData.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                                <Activity className="w-4 h-4 text-teal-600" />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-900">
-                                Votes Cast per Hour (Today)
-                            </span>
-                            <Badge className="bg-teal-100 text-teal-700 text-[10px] border-0 ml-auto">
-                                {votesPerHourChartData.reduce(
-                                    (sum, r) => sum + r.count,
-                                    0,
-                                )}{" "}
-                                votes
-                            </Badge>
-                        </div>
-                        <div className="h-[220px]">
+                    <section className={`${CARD} p-6`}>
+                        <PanelHeader
+                            icon={Activity}
+                            title="Votes cast per hour (today)"
+                            tone="bg-teal-50 text-teal-600"
+                            aside={
+                                <Pill className="bg-teal-50 text-teal-700">
+                                    {votesPerHourChartData.reduce(
+                                        (sum, r) => sum + r.count,
+                                        0,
+                                    )}{" "}
+                                    votes
+                                </Pill>
+                            }
+                        />
+                        <div className="h-[230px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={votesPerHourChartData}>
-                                    <defs>
-                                        <linearGradient
-                                            id="hourGradient"
-                                            x1="0"
-                                            y1="0"
-                                            x2="0"
-                                            y2="1"
-                                        >
-                                            <stop
-                                                offset="0%"
-                                                stopColor="#14b8a6"
-                                                stopOpacity={0.4}
-                                            />
-                                            <stop
-                                                offset="100%"
-                                                stopColor="#14b8a6"
-                                                stopOpacity={0}
-                                            />
-                                        </linearGradient>
-                                    </defs>
                                     <CartesianGrid
                                         strokeDasharray="3 3"
-                                        stroke="#f0f0f0"
+                                        stroke="#eef2f7"
+                                        vertical={false}
                                     />
                                     <XAxis
                                         dataKey="hour"
-                                        tick={{ fontSize: 11 }}
+                                        tick={{ fontSize: 11, fill: "#64748b" }}
+                                        axisLine={false}
+                                        tickLine={false}
                                     />
                                     <YAxis
-                                        tick={{ fontSize: 11 }}
+                                        tick={{ fontSize: 11, fill: "#64748b" }}
+                                        axisLine={false}
+                                        tickLine={false}
                                         allowDecimals={false}
                                     />
-                                    <Tooltip />
+                                    <Tooltip contentStyle={tooltipStyle} />
                                     <Area
                                         type="monotone"
                                         dataKey="count"
-                                        stroke="#14b8a6"
+                                        stroke={TEAL}
                                         strokeWidth={2.5}
-                                        fill="url(#hourGradient)"
+                                        fill={TEAL}
+                                        fillOpacity={0.14}
                                         name="Votes"
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
-                    </div>
+                    </section>
                 )}
 
-                {/* ============================================================ */}
-                {/* STATISTICS — PER-POSITION BREAKDOWN */}
-                {/* ============================================================ */}
+                {/* Per-position statistics */}
                 {data.position_progress && data.position_progress.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                <Award className="w-4 h-4 text-yellow-600" />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-900">
-                                Per-Position Statistics
-                            </span>
-                            <Badge className="bg-yellow-100 text-yellow-700 text-[10px] border-0 ml-auto">
-                                {data.position_progress.length} positions
-                            </Badge>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {data.position_progress.map((row, idx) => (
+                    <section className={`${CARD} p-6`}>
+                        <PanelHeader
+                            icon={Award}
+                            title="Per-position statistics"
+                            tone="bg-amber-50 text-amber-600"
+                            aside={
+                                <Pill className="bg-amber-50 text-amber-700">
+                                    {data.position_progress.length} positions
+                                </Pill>
+                            }
+                        />
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            {data.position_progress.map((row) => (
                                 <div
                                     key={row.position_id}
-                                    className={`p-4 rounded-xl border ${
-                                        idx % 2 === 0
-                                            ? "border-blue-100 bg-blue-50/30"
-                                            : "border-purple-100 bg-purple-50/30"
-                                    }`}
+                                    className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200/70"
                                 >
-                                    <div className="flex items-center justify-between mb-2 gap-2">
-                                        <span className="font-semibold text-sm text-gray-900 truncate">
+                                    <div className="mb-3 flex items-center justify-between gap-2">
+                                        <span className="truncate text-sm font-semibold text-slate-900">
                                             {row.title}
                                         </span>
-                                        <Badge
-                                            variant="outline"
-                                            className="text-[10px] flex-shrink-0"
-                                        >
+                                        <span className="shrink-0 text-sm font-semibold tabular-nums text-blue-700">
                                             {row.progress_percentage}%
-                                        </Badge>
+                                        </span>
                                     </div>
-                                    <Progress
-                                        value={row.progress_percentage}
-                                        className="h-2"
-                                    />
-                                    <div className="flex justify-between text-xs text-gray-500 mt-2">
-                                        <span className="flex items-center gap-1">
-                                            <Vote className="w-3 h-3" />
+                                    <Bar2 value={row.progress_percentage} />
+                                    <div className="mt-3 flex justify-between text-xs text-slate-500">
+                                        <span className="flex items-center gap-1.5">
+                                            <Vote className="h-3.5 w-3.5" />
                                             {row.votes_cast} votes
                                         </span>
-                                        <span className="flex items-center gap-1">
-                                            <Users className="w-3 h-3" />
+                                        <span className="flex items-center gap-1.5">
+                                            <Users className="h-3.5 w-3.5" />
                                             {row.total_candidates} candidates
                                         </span>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </section>
                 )}
 
-                {/* ============================================================ */}
-                {/* CANDIDATE RESULTS PER POSITION */}
-                {/* ============================================================ */}
+                {/* Candidate results */}
                 {positions.length === 0 ? (
-                    <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
-                        <BarChart3 className="w-12 h-12 mx-auto text-gray-400 mb-3 opacity-50" />
-                        <p className="text-gray-500 font-medium">
+                    <div className={`${CARD} p-12 text-center`}>
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                            <BarChart3 className="h-8 w-8 text-slate-400" />
+                        </div>
+                        <p className="font-semibold text-slate-700">
                             No results available yet
                         </p>
-                        <p className="text-sm text-gray-400 mt-1">
+                        <p className="mt-1 text-sm text-slate-500">
                             {isFinished
                                 ? "This election did not have any votes cast."
                                 : "Results will appear as soon as voting begins."}
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {positions.map((position, pIdx) => {
                             const maxVotes =
                                 Math.max(
-                                    ...position.candidates.map(
-                                        (c) => c.votes,
-                                    ),
+                                    ...position.candidates.map((c) => c.votes),
                                     1,
                                 ) || 1;
                             return (
-                                <div
+                                <section
                                     key={`${position.position_id}-${pIdx}`}
-                                    className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden"
+                                    className={`${CARD} overflow-hidden`}
                                 >
-                                    <div className="bg-gray-50 px-5 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <div
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <span
+                                                className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                                                     pIdx === 0
-                                                        ? "bg-yellow-100"
-                                                        : "bg-blue-100"
+                                                        ? "bg-amber-100 text-amber-600"
+                                                        : "bg-blue-50 text-blue-600"
                                                 }`}
                                             >
                                                 {pIdx === 0 ? (
-                                                    <Crown className="w-4 h-4 text-yellow-600" />
+                                                    <Crown className="h-4 w-4" />
                                                 ) : (
-                                                    <Award className="w-4 h-4 text-blue-600" />
+                                                    <Award className="h-4 w-4" />
+                                                )}
+                                            </span>
+                                            <div>
+                                                <h3 className="font-semibold leading-tight text-slate-900">
+                                                    {position.title}
+                                                </h3>
+                                                {position.category && (
+                                                    <div className="text-xs text-slate-500">
+                                                        {position.category}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <h3 className="font-bold text-gray-900">
-                                                {position.title}
-                                            </h3>
-                                            {position.category && (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="text-xs"
-                                                >
-                                                    {position.category}
-                                                </Badge>
-                                            )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <Badge
-                                                variant="outline"
-                                                className="bg-white text-xs"
-                                            >
-                                                {position.total_candidates}{" "}
-                                                candidates
-                                            </Badge>
-                                            <Badge
-                                                variant="outline"
-                                                className="bg-white text-xs"
-                                            >
+                                            <Pill className="bg-white text-slate-600 ring-1 ring-slate-200">
+                                                <Users className="h-3 w-3" />
+                                                {position.total_candidates} candidates
+                                            </Pill>
+                                            <Pill className="bg-white text-slate-600 ring-1 ring-slate-200">
+                                                <Vote className="h-3 w-3" />
                                                 {position.total_votes} votes
-                                            </Badge>
+                                            </Pill>
                                         </div>
                                     </div>
 
-                                    <div className="p-5 space-y-4">
+                                    <ol className="divide-y divide-slate-100">
                                         {[...position.candidates]
-                                            .sort(
-                                                (a, b) => b.votes - a.votes,
-                                            )
+                                            .sort((a, b) => b.votes - a.votes)
                                             .map((candidate, idx) => {
-                                                const pct =
-                                                    (candidate.votes /
-                                                        maxVotes) *
-                                                    100;
-                                                const isLeading =
-                                                    idx === 0 && isOngoing;
-                                                const isWinner =
-                                                    idx === 0 && isFinished;
+                                                const barPct =
+                                                    (candidate.votes / maxVotes) * 100;
+                                                const share =
+                                                    position.total_votes > 0
+                                                        ? (candidate.votes /
+                                                              position.total_votes) *
+                                                          100
+                                                        : 0;
+                                                const isLeading = idx === 0 && isOngoing;
+                                                const isWinner = idx === 0 && isFinished;
                                                 const displayName = isOngoing
                                                     ? `Candidate ${String.fromCharCode(65 + idx)}`
                                                     : candidate.candidate_name;
 
+                                                const top = isLeading || isWinner;
+                                                const barTone = isWinner
+                                                    ? "bg-emerald-500"
+                                                    : isLeading
+                                                      ? "bg-amber-400"
+                                                      : "bg-slate-300";
+
                                                 return (
-                                                    <div
-                                                        key={
-                                                            candidate.candidate_id
-                                                        }
-                                                        className="space-y-2"
+                                                    <li
+                                                        key={candidate.candidate_id}
+                                                        className={`px-6 py-4 ${
+                                                            isWinner
+                                                                ? "bg-emerald-50/50"
+                                                                : isLeading
+                                                                  ? "bg-amber-50/40"
+                                                                  : ""
+                                                        }`}
                                                     >
-                                                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="font-medium text-gray-800">
-                                                                    {
-                                                                        displayName
-                                                                    }
-                                                                </span>
-                                                                {!isFinished &&
-                                                                    isOngoing && (
-                                                                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                                            <Lock className="w-3 h-3" />
+                                                        <div className="flex items-center gap-4">
+                                                            <span
+                                                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums ${
+                                                                    isWinner
+                                                                        ? "bg-emerald-500 text-white"
+                                                                        : isLeading
+                                                                          ? "bg-amber-400 text-white"
+                                                                          : "bg-slate-100 text-slate-500"
+                                                                }`}
+                                                            >
+                                                                {isWinner ? (
+                                                                    <Trophy className="h-4 w-4" />
+                                                                ) : (
+                                                                    idx + 1
+                                                                )}
+                                                            </span>
+
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                                    <span
+                                                                        className={`truncate ${
+                                                                            top
+                                                                                ? "font-semibold text-slate-900"
+                                                                                : "font-medium text-slate-700"
+                                                                        }`}
+                                                                    >
+                                                                        {displayName}
+                                                                    </span>
+                                                                    {!isFinished && isOngoing && (
+                                                                        <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                                                                            <Lock className="h-3 w-3" />
                                                                             Anonymous
                                                                         </span>
                                                                     )}
-                                                                {isLeading && (
-                                                                    <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                                                                        <TrendingUp className="w-3 h-3 mr-1" />
-                                                                        Leading
-                                                                    </Badge>
-                                                                )}
-                                                                {isWinner && (
-                                                                    <Badge className="bg-green-100 text-green-800 text-xs">
-                                                                        <Trophy className="w-3 h-3 mr-1" />
-                                                                        Winner
-                                                                    </Badge>
-                                                                )}
-                                                                {!isOngoing &&
-                                                                    candidate.partylist &&
-                                                                    candidate.partylist !==
-                                                                        "Independent" && (
-                                                                        <span className="text-xs text-gray-500">
-                                                                            (
-                                                                            {
-                                                                                candidate.partylist
-                                                                            }
-                                                                            )
-                                                                        </span>
+                                                                    {isLeading && (
+                                                                        <Pill className="bg-amber-100 text-amber-800">
+                                                                            <TrendingUp className="h-3 w-3" />
+                                                                            Leading
+                                                                        </Pill>
                                                                     )}
+                                                                    {isWinner && (
+                                                                        <Pill className="bg-emerald-100 text-emerald-800">
+                                                                            <Trophy className="h-3 w-3" />
+                                                                            Winner
+                                                                        </Pill>
+                                                                    )}
+                                                                    {!isOngoing &&
+                                                                        candidate.partylist &&
+                                                                        candidate.partylist !== "Independent" && (
+                                                                            <span className="text-xs text-slate-500">
+                                                                                {candidate.partylist}
+                                                                            </span>
+                                                                        )}
+                                                                </div>
+                                                                <div className="mt-2">
+                                                                    <Bar2
+                                                                        value={barPct}
+                                                                        className={barTone}
+                                                                        height="h-2.5"
+                                                                    />
+                                                                </div>
                                                             </div>
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="font-bold text-xl text-gray-900">
-                                                                    {
-                                                                        candidate.votes
-                                                                    }
-                                                                </span>
-                                                                <span className="text-sm text-gray-500 w-12 text-right">
-                                                                    {Math.round(
-                                                                        pct,
-                                                                    )}
-                                                                    %
-                                                                </span>
+
+                                                            <div className="w-20 shrink-0 text-right">
+                                                                <div className="text-xl font-semibold leading-none tabular-nums text-slate-900">
+                                                                    {candidate.votes}
+                                                                </div>
+                                                                <div className="mt-1 text-xs tabular-nums text-slate-500">
+                                                                    {Math.round(share)}%
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <Progress
-                                                            value={pct}
-                                                            className={`h-2.5 ${
-                                                                idx === 0
-                                                                    ? "bg-yellow-500"
-                                                                    : ""
-                                                            }`}
-                                                        />
-                                                    </div>
+                                                    </li>
                                                 );
                                             })}
-                                    </div>
-                                </div>
+                                    </ol>
+                                </section>
                             );
                         })}
                     </div>
                 )}
 
                 {/* Footer note */}
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                    <div className="flex items-start gap-3">
-                        <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h4 className="font-semibold text-blue-800">
-                                About These Statistics
-                            </h4>
-                            <ul className="text-sm text-blue-700 mt-2 space-y-1">
-                                <li>• Public — no login required</li>
-                                <li>
-                                    • {isOngoing
-                                        ? "Refreshes every 15 seconds"
-                                        : "Final, locked results"}
-                                </li>
-                                <li>
-                                    • {isOngoing
-                                        ? "Candidate names hidden during voting"
-                                        : "Candidate names and partylists shown"}
-                                </li>
-                                <li>
-                                    • All counts are aggregate — individual
-                                    ballots stay private
-                                </li>
-                                <li>
-                                    • Statistics shown: turnout, votes per
-                                    hour, per-position progress, and recent
-                                    activity
-                                </li>
-                            </ul>
-                        </div>
+                <section className="rounded-2xl bg-[#0F2A6B] p-6 text-slate-300 sm:p-8">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+                            <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                        </span>
+                        <h2 className="text-lg font-semibold text-white">
+                            About these statistics
+                        </h2>
                     </div>
-                </div>
-            </div>
+                    <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                            { icon: Vote, text: "Public. No login required." },
+                            {
+                                icon: RefreshCw,
+                                text: isOngoing
+                                    ? "Refreshes every 15 seconds."
+                                    : "Final, locked results.",
+                            },
+                            {
+                                icon: Lock,
+                                text: isOngoing
+                                    ? "Candidate names are hidden during voting."
+                                    : "Candidate names and partylists are shown.",
+                            },
+                            {
+                                icon: ShieldCheck,
+                                text: "All counts are aggregate. Individual ballots stay private.",
+                            },
+                        ].map(({ icon: Icon, text }) => (
+                            <div key={text} className="flex items-start gap-3">
+                                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
+                                <p className="text-sm leading-relaxed">{text}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <p className="mt-6 border-t border-white/10 pt-4 text-xs text-slate-400">
+                        Statistics shown: turnout, votes per hour, per-position
+                        progress and recent activity.
+                    </p>
+                </section>
+            </main>
         </div>
     );
 };

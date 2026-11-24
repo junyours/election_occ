@@ -1,7 +1,6 @@
 // resources/js/Portal/PortalLiveResults.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -9,14 +8,14 @@ import { publicResultsAPI, PublicElection } from "../api/publicResults";
 import {
     Activity,
     ArrowLeft,
-    ArrowRight,
+    ArrowUpRight,
     Calendar,
-    CheckCircle,
+    CheckCircle2,
     Clock,
-    Loader2,
+    Lock,
     RefreshCw,
     Search,
-    Sparkles,
+    ShieldCheck,
     TrendingUp,
     Trophy,
     Vote,
@@ -24,29 +23,84 @@ import {
 } from "lucide-react";
 
 type FilterType = "all" | "CSG" | "SBO" | "ongoing" | "ended";
+type StatusLabel = "Upcoming" | "Ended" | "Ongoing";
+
+/* ------------------------------------------------------------------ */
+/* Status helpers                                                      */
+/* ------------------------------------------------------------------ */
+
+const STATUS_STYLES = {
+    Ongoing: {
+        icon: Activity,
+        chip: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+        rail: "bg-emerald-500",
+        bar: "bg-emerald-500",
+        cta: "View live results",
+        ctaIcon: TrendingUp,
+    },
+    Ended: {
+        icon: CheckCircle2,
+        chip: "bg-slate-100 text-slate-600 ring-slate-200",
+        rail: "bg-slate-300",
+        bar: "bg-slate-400",
+        cta: "View final results",
+        ctaIcon: Trophy,
+    },
+    Upcoming: {
+        icon: Clock,
+        chip: "bg-amber-50 text-amber-700 ring-amber-200",
+        rail: "bg-amber-400",
+        bar: "bg-amber-400",
+        cta: "View election",
+        ctaIcon: Calendar,
+    },
+} as const;
 
 const getStatus = (election: PublicElection) => {
     const now = new Date();
     const start = new Date(election.voting_start);
     const end = new Date(election.voting_end);
-    if (now < start)
-        return {
-            label: "Upcoming",
-            color: "bg-yellow-100 text-yellow-800",
-            icon: Clock,
-        };
-    if (now > end)
-        return {
-            label: "Ended",
-            color: "bg-gray-100 text-gray-800",
-            icon: CheckCircle,
-        };
-    return {
-        label: "Ongoing",
-        color: "bg-green-100 text-green-800",
-        icon: Activity,
-    };
+    const label: StatusLabel =
+        now < start ? "Upcoming" : now > end ? "Ended" : "Ongoing";
+    return { label, ...STATUS_STYLES[label] };
 };
+
+const formatDate = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+
+const formatSpan = (ms: number) => {
+    const mins = Math.max(0, Math.floor(ms / 60000));
+    const days = Math.floor(mins / 1440);
+    const hours = Math.floor((mins % 1440) / 60);
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${mins % 60}m`;
+    return `${mins}m`;
+};
+
+const getProgress = (election: PublicElection) => {
+    const start = new Date(election.voting_start).getTime();
+    const end = new Date(election.voting_end).getTime();
+    const now = Date.now();
+    if (end <= start) return 0;
+    return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+};
+
+const getTimeNote = (election: PublicElection, label: StatusLabel) => {
+    const now = Date.now();
+    if (label === "Ongoing")
+        return `Closes in ${formatSpan(new Date(election.voting_end).getTime() - now)}`;
+    if (label === "Upcoming")
+        return `Opens in ${formatSpan(new Date(election.voting_start).getTime() - now)}`;
+    return `Closed ${formatDate(election.voting_end)}`;
+};
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 const PortalLiveResults: React.FC = () => {
     const navigate = useNavigate();
@@ -102,10 +156,10 @@ const PortalLiveResults: React.FC = () => {
                     (e.course?.course_code ?? "").toLowerCase().includes(term),
             );
         }
-        return list.sort((a, b) => {
+        return [...list].sort((a, b) => {
             const order = { Ongoing: 0, Ended: 1, Upcoming: 2 } as const;
-            const sa = getStatus(a).label as keyof typeof order;
-            const sb = getStatus(b).label as keyof typeof order;
+            const sa = getStatus(a).label;
+            const sb = getStatus(b).label;
             if (order[sa] !== order[sb]) return order[sa] - order[sb];
             return (
                 new Date(b.voting_end).getTime() -
@@ -114,8 +168,8 @@ const PortalLiveResults: React.FC = () => {
         });
     }, [elections, filter, search]);
 
-    const counts = useMemo(() => {
-        return {
+    const counts = useMemo(
+        () => ({
             total: elections.length,
             ongoing: elections.filter((e) => getStatus(e).label === "Ongoing")
                 .length,
@@ -124,183 +178,207 @@ const PortalLiveResults: React.FC = () => {
             upcoming: elections.filter(
                 (e) => getStatus(e).label === "Upcoming",
             ).length,
-        };
-    }, [elections]);
+        }),
+        [elections],
+    );
+
+    const filterOptions: [FilterType, string][] = [
+        ["all", "All"],
+        ["ongoing", "Ongoing"],
+        ["ended", "Ended"],
+        ["CSG", "CSG"],
+        ["SBO", "SBO"],
+    ];
+
+    const statCells = [
+        { label: "Total", value: counts.total, icon: Vote, tone: "text-slate-900", iconTone: "text-blue-600 bg-blue-50" },
+        { label: "Ongoing", value: counts.ongoing, icon: Activity, tone: "text-emerald-700", iconTone: "text-emerald-600 bg-emerald-50" },
+        { label: "Ended", value: counts.ended, icon: CheckCircle2, tone: "text-slate-700", iconTone: "text-slate-600 bg-slate-100" },
+        { label: "Upcoming", value: counts.upcoming, icon: Clock, tone: "text-amber-700", iconTone: "text-amber-600 bg-amber-50" },
+    ];
 
     return (
-        <div className="min-h-screen bg-blue-50">
-            {/* Header */}
-            <div className="relative overflow-hidden bg-blue-600 shadow-xl">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-2xl" />
-                <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="flex justify-between items-center flex-wrap gap-4">
-                        <div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => navigate("/")}
-                                className="text-white/80 hover:text-white hover:bg-white/10 -ml-2 mb-2"
-                            >
-                                <ArrowLeft className="w-4 h-4 mr-2" />
-                                Back to Portal
-                            </Button>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Sparkles className="w-5 h-5 text-yellow-300" />
-                                <Badge className="bg-white/20 text-white border-0">
-                                    Public Live Results
-                                </Badge>
+        <div className="min-h-screen bg-slate-50 text-slate-900">
+            {/* ============================ HERO ============================ */}
+            <header className="relative overflow-hidden bg-[#0F2A6B]">
+                <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-16 sm:pb-20">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate("/")}
+                        className="-ml-3 text-slate-300 hover:text-white hover:bg-white/10"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Portal
+                    </Button>
+
+                    <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                        <div className="max-w-2xl">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm text-slate-200 ring-1 ring-white/15">
+                                <span className="relative flex h-2.5 w-2.5">
+                                    {counts.ongoing > 0 && (
+                                        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-safe:animate-ping" />
+                                    )}
+                                    <span
+                                        className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                                            counts.ongoing > 0
+                                                ? "bg-emerald-400"
+                                                : "bg-slate-400"
+                                        }`}
+                                    />
+                                </span>
+                                {counts.ongoing > 0
+                                    ? `${counts.ongoing} ${counts.ongoing === 1 ? "election" : "elections"} open for voting`
+                                    : "No elections open right now"}
                             </div>
-                            <h1 className="text-3xl font-bold text-white">
-                                Election Live Results
+
+                            <h1 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-[1.1]">
+                                Election live results
                             </h1>
-                            <p className="text-blue-100 mt-1">
-                                Watch the counts update in real time. No login
-                                required.
+                            <p className="mt-2 max-w-xl text-sm sm:text-base leading-relaxed text-slate-300">
+                                Follow the count as it happens. Open to
+                                everyone, no login needed.
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Badge className="bg-white/20 text-white border-0 px-4 py-2">
-                                <Vote className="w-4 h-4 mr-1" />
-                                {counts.total} Elections
-                            </Badge>
+
+                        <div className="flex items-center gap-3 lg:pb-1">
+                            <div className="text-right leading-tight">
+                                <div className="text-xs text-slate-400">
+                                    Last updated
+                                </div>
+                                <div className="text-sm font-medium tabular-nums text-slate-100">
+                                    {lastUpdated.toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
+                                    })}
+                                </div>
+                            </div>
                             <Button
-                                variant="outline"
-                                size="sm"
                                 onClick={() => fetchElections(true)}
                                 disabled={refreshing}
-                                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                                className="h-11 rounded-xl bg-white px-5 font-medium text-[#0F2A6B] shadow-lg shadow-black/20 hover:bg-slate-100"
                             >
                                 <RefreshCw
                                     className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
                                 />
-                                Refresh
+                                {refreshing ? "Refreshing" : "Refresh"}
                             </Button>
                         </div>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-                {/* Stats pills */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full shadow-sm">
-                        <Vote className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-medium text-gray-600">
-                            Total
-                        </span>
-                        <span className="text-sm font-bold text-gray-900">
-                            {counts.total}
-                        </span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full">
-                        <Activity className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-700">
-                            Ongoing
-                        </span>
-                        <span className="text-sm font-bold text-green-800">
-                            {counts.ongoing}
-                        </span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-full">
-                        <CheckCircle className="w-4 h-4 text-gray-600" />
-                        <span className="text-sm font-medium text-gray-700">
-                            Ended
-                        </span>
-                        <span className="text-sm font-bold text-gray-800">
-                            {counts.ended}
-                        </span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-full">
-                        <Clock className="w-4 h-4 text-yellow-600" />
-                        <span className="text-sm font-medium text-yellow-700">
-                            Upcoming
-                        </span>
-                        <span className="text-sm font-bold text-yellow-800">
-                            {counts.upcoming}
-                        </span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full shadow-sm ml-auto">
-                        <span className="text-xs text-gray-500">
-                            Updated {lastUpdated.toLocaleTimeString()}
-                        </span>
-                    </div>
-                </div>
+            {/* ============================ BODY ============================ */}
+            <main className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 -mt-10 pb-16 space-y-6">
+                {/* Stats: one connected strip */}
+                <section
+                    aria-label="Election summary"
+                    className="grid grid-cols-2 lg:grid-cols-4 overflow-hidden rounded-2xl bg-white shadow-xl shadow-slate-900/10 ring-1 ring-slate-200"
+                >
+                    {statCells.map((s, i) => {
+                        const Icon = s.icon;
+                        return (
+                            <div
+                                key={s.label}
+                                className={`flex items-center gap-4 p-5 sm:p-6 ${
+                                    i % 2 === 1 ? "border-l border-slate-100" : ""
+                                } ${i >= 2 ? "border-t lg:border-t-0 border-slate-100" : ""} ${
+                                    i > 0 ? "lg:border-l" : ""
+                                }`}
+                            >
+                                <span
+                                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${s.iconTone}`}
+                                >
+                                    <Icon className="w-5 h-5" />
+                                </span>
+                                <div>
+                                    <div
+                                        className={`text-3xl font-semibold tabular-nums leading-none ${s.tone}`}
+                                    >
+                                        {loading ? "–" : s.value}
+                                    </div>
+                                    <div className="mt-1.5 text-sm text-slate-500">
+                                        {s.label}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </section>
 
                 {/* Filters */}
-                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
-                    <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
-                        <Tabs
-                            value={filter}
-                            onValueChange={(v) => setFilter(v as FilterType)}
-                        >
-                            <TabsList className="bg-gray-100 p-1 rounded-xl flex-wrap h-auto">
-                                {[
-                                    ["all", "All"],
-                                    ["ongoing", "Ongoing"],
-                                    ["ended", "Ended"],
-                                    ["CSG", "CSG"],
-                                    ["SBO", "SBO"],
-                                ].map(([val, label]) => (
-                                    <TabsTrigger
-                                        key={val}
-                                        value={val}
-                                        className="rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                                    >
-                                        {label}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </Tabs>
-                        <div className="relative flex-1 md:max-w-sm ml-auto">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input
-                                placeholder="Search elections..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-10 rounded-xl bg-gray-50 border-gray-200"
-                            />
-                            {search && (
-                                <button
-                                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                                    onClick={() => setSearch("")}
+                <section className="flex flex-col gap-3 md:flex-row md:items-center">
+                    <Tabs
+                        value={filter}
+                        onValueChange={(v) => setFilter(v as FilterType)}
+                    >
+                        <TabsList className="h-auto flex-wrap rounded-xl bg-slate-200/60 p-1">
+                            {filterOptions.map(([val, label]) => (
+                                <TabsTrigger
+                                    key={val}
+                                    value={val}
+                                    className="rounded-lg px-4 py-2 text-slate-600 data-[state=active]:bg-[#123A8C] data-[state=active]:text-white data-[state=active]:shadow-md"
                                 >
-                                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                                </button>
-                            )}
-                        </div>
+                                    {label}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
+
+                    <div className="relative md:ml-auto md:w-full md:max-w-sm">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                            aria-label="Search elections"
+                            placeholder="Search by title or course"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="h-11 rounded-xl border-slate-200 bg-white pl-10 pr-10 shadow-sm focus-visible:ring-blue-500"
+                        />
+                        {search && (
+                            <button
+                                type="button"
+                                aria-label="Clear search"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                                onClick={() => setSearch("")}
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
                     </div>
-                </div>
+                </section>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
+                    <div
+                        role="alert"
+                        className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    >
                         {error}
                     </div>
                 )}
 
+                {/* Elections list (flat rows, no cards) */}
                 {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                            <div
-                                key={i}
-                                className="h-52 bg-white border border-gray-200 rounded-2xl animate-pulse"
-                            />
+                    <div className="border-y border-slate-200 divide-y divide-slate-200">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <div key={i} className="flex animate-pulse items-center gap-6 py-6">
+                                <div className="h-4 w-1/3 rounded bg-slate-200" />
+                                <div className="ml-auto h-4 w-24 rounded bg-slate-200" />
+                            </div>
                         ))}
                     </div>
                 ) : filteredElections.length === 0 ? (
-                    <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Vote className="w-10 h-10 text-gray-400" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                    <div className="border-y border-slate-200 py-16 text-center">
+                        <Vote className="mx-auto h-9 w-9 text-slate-300" />
+                        <h3 className="mt-4 text-lg font-semibold text-slate-800">
                             No elections match your filters
                         </h3>
-                        <p className="text-gray-500">
-                            Try clearing the search or switching filters.
+                        <p className="mt-1 text-slate-500">
+                            Clear the search or switch to another filter.
                         </p>
                         <Button
                             variant="outline"
-                            className="mt-4 rounded-xl"
+                            className="mt-5 rounded-xl"
                             onClick={() => {
                                 setFilter("all");
                                 setSearch("");
@@ -310,132 +388,164 @@ const PortalLiveResults: React.FC = () => {
                         </Button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredElections.map((election) => {
-                            const status = getStatus(election);
-                            const StatusIcon = status.icon;
-                            return (
-                                <div
-                                    key={election.election_id}
-                                    className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg transition-all hover:-translate-y-0.5 cursor-pointer group overflow-hidden"
-                                    onClick={() =>
-                                        navigate(
-                                            `/live-results/${election.election_id}`,
-                                        )
-                                    }
-                                >
-                                    <div
-                                        className={`h-1.5 ${
-                                            election.election_type === "CSG"
-                                                ? "bg-blue-600"
-                                                : "bg-green-600"
-                                        }`}
-                                    />
-                                    <div className="p-5">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                                    <Badge
-                                                        className={`${status.color} border-0`}
-                                                    >
-                                                        <StatusIcon className="w-3 h-3 mr-1" />
-                                                        {status.label}
-                                                    </Badge>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="text-xs"
-                                                    >
-                                                        {election.election_type}
-                                                    </Badge>
-                                                    {election.course && (
-                                                        <Badge
-                                                            variant="outline"
-                                                            className="text-xs"
-                                                        >
-                                                            {
-                                                                election.course
-                                                                    .course_code
-                                                            }
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <h3 className="font-bold text-lg text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    <section aria-label="Elections">
+                        {/* column labels (desktop) */}
+                        <div className="hidden lg:grid lg:grid-cols-[minmax(0,2.6fr)_110px_210px_190px_32px] lg:gap-6 px-4 pb-3 text-xs font-medium text-slate-500">
+                            <span>Election</span>
+                            <span>Type</span>
+                            <span>Voting period</span>
+                            <span>Status</span>
+                            <span />
+                        </div>
+
+                        <ul className="border-y border-slate-200 divide-y divide-slate-200">
+                            {filteredElections.map((election) => {
+                                const status = getStatus(election);
+                                const StatusIcon = status.icon;
+                                const isLive = status.label === "Ongoing";
+                                const isCSG = election.election_type === "CSG";
+                                const go = () =>
+                                    navigate(`/live-results/${election.election_id}`);
+
+                                return (
+                                    <li key={election.election_id}>
+                                        <div
+                                            role="link"
+                                            tabIndex={0}
+                                            aria-label={`${election.title}: ${status.cta}`}
+                                            onClick={go}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    go();
+                                                }
+                                            }}
+                                            className="group relative grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-3 px-4 py-5 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 lg:grid-cols-[minmax(0,2.6fr)_110px_210px_190px_32px]"
+                                        >
+                                            {/* status marker on the left edge */}
+                                            <span
+                                                aria-hidden
+                                                className={`absolute inset-y-3 left-0 w-1 rounded-full ${status.rail}`}
+                                            />
+
+                                            {/* Election */}
+                                            <div className="min-w-0 col-span-1">
+                                                <h3 className="truncate text-base font-semibold text-slate-900 transition-colors group-hover:text-blue-700">
                                                     {election.title}
                                                 </h3>
                                                 {election.description && (
-                                                    <p className="text-sm text-gray-500 line-clamp-2 mt-1">
+                                                    <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
                                                         {election.description}
                                                     </p>
                                                 )}
                                             </div>
-                                        </div>
-                                        <div className="mt-3 flex items-center text-xs text-gray-500">
-                                            <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                                            {new Date(
-                                                election.voting_start,
-                                            ).toLocaleDateString()}{" "}
-                                            –{" "}
-                                            {new Date(
-                                                election.voting_end,
-                                            ).toLocaleDateString()}
-                                        </div>
-                                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                                            <span className="text-sm font-bold text-blue-600 flex items-center gap-1">
-                                                {status.label === "Ended" ? (
-                                                    <>
-                                                        <Trophy className="w-4 h-4" />
-                                                        View Final Results
-                                                    </>
-                                                ) : status.label ===
-                                                  "Ongoing" ? (
-                                                    <>
-                                                        <TrendingUp className="w-4 h-4" />
-                                                        View Live Results
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Calendar className="w-4 h-4" />
-                                                        View Election
-                                                    </>
-                                                )}
+
+                                            {/* arrow (mobile sits top-right, desktop last column) */}
+                                            <span className="row-start-1 col-start-2 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors group-hover:bg-blue-600 group-hover:text-white lg:col-start-5">
+                                                <ArrowUpRight className="h-4 w-4" />
                                             </span>
-                                            <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+
+                                            {/* Type */}
+                                            <div className="col-span-2 flex items-center gap-2 text-sm lg:col-span-1 lg:col-start-2 lg:row-start-1">
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 font-semibold ${
+                                                        isCSG ? "text-blue-700" : "text-violet-700"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        aria-hidden
+                                                        className={`h-2 w-2 rounded-full ${
+                                                            isCSG ? "bg-blue-600" : "bg-violet-600"
+                                                        }`}
+                                                    />
+                                                    {election.election_type}
+                                                </span>
+                                                {election.course && (
+                                                    <span className="text-slate-500">
+                                                        {election.course.course_code}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Dates */}
+                                            <div className="col-span-2 flex items-center gap-2 text-sm tabular-nums text-slate-600 lg:col-span-1 lg:col-start-3 lg:row-start-1">
+                                                <Calendar className="h-4 w-4 shrink-0 text-slate-400" />
+                                                <span>
+                                                    {formatDate(election.voting_start)}
+                                                    {" – "}
+                                                    {formatDate(election.voting_end)}
+                                                </span>
+                                            </div>
+
+                                            {/* Status */}
+                                            <div className="col-span-2 lg:col-span-1 lg:col-start-4 lg:row-start-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${status.chip}`}
+                                                    >
+                                                        {isLive ? (
+                                                            <span className="relative flex h-2 w-2">
+                                                                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
+                                                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                                            </span>
+                                                        ) : (
+                                                            <StatusIcon className="h-3.5 w-3.5" />
+                                                        )}
+                                                        {isLive ? "Live" : status.label}
+                                                    </span>
+                                                    <span className="text-xs tabular-nums text-slate-500">
+                                                        {getTimeNote(election, status.label)}
+                                                    </span>
+                                                </div>
+                                                {isLive && (
+                                                    <div
+                                                        role="progressbar"
+                                                        aria-label="Voting period elapsed"
+                                                        aria-valuemin={0}
+                                                        aria-valuemax={100}
+                                                        aria-valuenow={Math.round(getProgress(election))}
+                                                        className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-200"
+                                                    >
+                                                        <div
+                                                            className={`h-full rounded-full ${status.bar}`}
+                                                            style={{ width: `${getProgress(election)}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </section>
                 )}
 
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                    <div className="flex items-start gap-3">
-                        <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h4 className="font-semibold text-blue-800">
-                                About Public Live Results
-                            </h4>
-                            <ul className="text-sm text-blue-700 mt-2 space-y-1">
-                                <li>
-                                    • Open to the public — no login required
-                                </li>
-                                <li>
-                                    • Ongoing elections refresh every 15
-                                    seconds automatically
-                                </li>
-                                <li>
-                                    • Ended elections show the final, locked
-                                    count
-                                </li>
-                                <li>
-                                    • Candidate names are hidden while an
-                                    election is ongoing to keep voting fair
-                                </li>
-                            </ul>
-                        </div>
+                {/* About */}
+                <section className="rounded-2xl bg-[#0F2A6B] p-6 sm:p-8 text-slate-300">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+                            <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                        </span>
+                        <h2 className="text-lg font-semibold text-white">
+                            How public results work
+                        </h2>
                     </div>
-                </div>
-            </div>
+                    <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                            { icon: Vote, text: "Open to the public. No login required." },
+                            { icon: RefreshCw, text: "Ongoing elections refresh every 15 seconds." },
+                            { icon: Lock, text: "Ended elections show the final, locked count." },
+                            { icon: ShieldCheck, text: "Candidate names stay hidden while voting is open, to keep it fair." },
+                        ].map(({ icon: Icon, text }) => (
+                            <div key={text} className="flex items-start gap-3">
+                                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
+                                <p className="text-sm leading-relaxed">{text}</p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            </main>
         </div>
     );
 };

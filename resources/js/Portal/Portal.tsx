@@ -48,39 +48,6 @@ const Portal: React.FC = () => {
      * ✅ STEP 1 — Verify credentials and request OTP.
      * Returns { success, error } to the LoginModal so it can show errors inline.
      */
-    // const handleLogin = async (
-    //     email: string,
-    //     password: string,
-    // ): Promise<{ success: boolean; error?: string }> => {
-    //     setIsLoading(true);
-    //     setLoginError("");
-
-    //     try {
-    //         const response = await authAPI.requestOtp(email, password);
-    //         const data = response.data;
-
-    //         if (data.success && data.otp_required) {
-    //             // Credentials valid → close login modal, open OTP modal
-    //             setPendingEmail(data.email || email);
-    //             setIsLoginOpen(false);
-    //             setIsOtpOpen(true);
-    //             return { success: true };
-    //         }
-
-    //         // Backend returned success: false for some reason
-    //         const msg = data.message || "Unable to start login. Please try again.";
-    //         setLoginError(msg);
-    //         return { success: false, error: msg };
-    //     } catch (err: any) {
-    //         const msg =
-    //             err.response?.data?.message ||
-    //             "Login failed. Please check your credentials.";
-    //         setLoginError(msg);
-    //         return { success: false, error: msg };
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
     const handleLogin = async (
         email: string,
         password: string,
@@ -89,23 +56,20 @@ const Portal: React.FC = () => {
         setLoginError("");
 
         try {
-            // ✅ Direct login (OTP bypassed)
-            const response = await authAPI.login(email, password);
+            const response = await authAPI.requestOtp(email, password);
             const data = response.data;
 
-            if (data.success && data.token && data.user) {
-                // Persist auth state immediately
-                localStorage.setItem("access_token", data.token);
-                localStorage.setItem("user", JSON.stringify(data.user));
-
+            if (data.success && data.otp_required) {
+                // Credentials valid → close login modal, open OTP modal
+                setPendingEmail(data.email || email);
                 setIsLoginOpen(false);
-
-                // Full reload so AuthContext picks up the new token
-                window.location.href = "/dashboard";
+                setIsOtpOpen(true);
                 return { success: true };
             }
 
-            const msg = data.message || "Login failed. Please try again.";
+            // Backend returned success: false for some reason
+            const msg =
+                data.message || "Unable to start login. Please try again.";
             setLoginError(msg);
             return { success: false, error: msg };
         } catch (err: any) {
