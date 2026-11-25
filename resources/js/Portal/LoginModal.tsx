@@ -84,8 +84,8 @@ const LoginModal: React.FC<LoginModalProps> = ({
     };
 
     const handleDownloadApp = (): void => {
-    window.location.href = "/api/web/download-app";
-};
+        window.location.href = "https://expo.dev/accounts/makicode/projects/occ-election-mobile/builds/1566cc2a-8cab-46d0-ba0a-96704eeeeccd";
+    };
 
     const displayError = error || localError;
 

@@ -15,8 +15,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onVoteNowClick }) => {
     };
 
     const handleDownloadApp = (): void => {
-    window.location.href = "/api/web/download-app";
-};
+        window.location.href = "https://expo.dev/accounts/makicode/projects/occ-election-mobile/builds/1566cc2a-8cab-46d0-ba0a-96704eeeeccd";
+    };
 
     return (
         <section id="home" className="relative overflow-hidden">
@@ -144,7 +144,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onVoteNowClick }) => {
                         >
                             {/* Animated shimmer background */}
                             <div className="absolute inset-0 bg-blue-100/30 -translate-x-full animate-shimmer"></div>
-                            
+
                             {/* Animated pulse ring */}
                             <div className="absolute inset-0 rounded-2xl border-2 border-blue-400/20 animate-pulse-ring"></div>
 
